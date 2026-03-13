@@ -1,0 +1,104 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // ou mysql, conforme especificado
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PLAYER
+  OWNER
+}
+
+model User {
+  id       String    @id @default(uuid())
+  name     String
+  email    String    @unique
+  password String    // hash
+  role     Role      @default(PLAYER)
+  
+  arenas   Arena[]
+  bookings Booking[]
+  lobbies  Lobby[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Arena {
+  id            String   @id @default(uuid())
+  ownerId       String
+  owner         User     @relation(fields: [ownerId], references: [id])
+  name          String
+  address       String
+  latitude      Float
+  longitude     Float
+  sports        String[] // ["Futebol", "Vôlei", "Tênis"]
+  businessHours Json     // Ex: { "seg-ter": "fechado", "qua-sex": "10h-20h" }
+
+  timeSlots     TimeSlot[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum SlotStatus {
+  AVAILABLE
+  RESERVED
+  LOCKED
+}
+
+model TimeSlot {
+  id        String     @id @default(uuid())
+  arenaId   String
+  arena     Arena      @relation(fields: [arenaId], references: [id])
+  date      DateTime   @db.Date
+  startTime DateTime   @db.Time
+  endTime   DateTime   @db.Time
+  status    SlotStatus @default(AVAILABLE)
+  
+  bookings  Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+model Booking {
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  slotId         String
+  timeSlot       TimeSlot      @relation(fields: [slotId], references: [id])
+  paymentStatus  PaymentStatus @default(PENDING)
+  termsAccepted  Boolean       @default(true)
+
+  lobby          Lobby?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Lobby {
+  id             String  @id @default(uuid())
+  bookingId      String  @unique
+  booking        Booking @relation(fields: [bookingId], references: [id])
+  creatorId      String
+  creator        User    @relation(fields: [creatorId], references: [id])
+  maxPlayers     Int
+  currentPlayers Int     @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
